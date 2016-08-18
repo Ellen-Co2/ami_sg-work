@@ -8,7 +8,7 @@
     - find.freq: use fft to find max power of frequency as predictors
     - find.k: find optimal K for fourier combinations
 2. [SDE] contains the [plots] and codes:
-  * __test1.json__: raw data entries in JSON format, with all the possible fields and 2 entries, other data is in reading week(Apr 16 00:00 - Apr 22 23:59) 
+  * __raw2.json__: raw data entries in JSON format, with all the possible fields and 2 entries, other data is in reading week(Apr 16 00:00 - Apr 22 23:59) 
   * __jsontest.ipynb__: data exploring, basic infos related to each fields;
   * __features.ipynb__: feature exploring, distribution of "stationary" "out boundary" devices, mean shift for clustering in 30 mins, snap shot plots
   * __db write.py__: to write each floor into .sqlite database(need to modify with directory and table names) plus simple preprocessing(adding "interval", "out", parsing time)

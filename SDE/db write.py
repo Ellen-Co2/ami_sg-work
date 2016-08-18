@@ -28,21 +28,22 @@ def out_dim(s):
 ### function to parse datetime and make hrfir/ hrlas/ interval
 def diff(col):
     t_fun = lambda x : datetime.strptime(x[0:19],'%Y-%m-%dT%H:%M:%S')
-    secs = []
+    #secs = []
     fir_t = []
     las_t = []
     for i, row in enumerate(col.values):
         fir = t_fun(col.firstlocatedtime[i])
         las = t_fun(col.lastlocatedtime[i])
-        dif = timedelta.total_seconds(las - fir)
-        secs.append(dif)
+        #dif = timedelta.total_seconds(las - fir)
+        #secs.append(dif)
         fir_t.append(fir)
         las_t.append(las)
-    print "interval len: %s" %len(secs)
+    #print "interval len: %s" %len(secs)
     col['firstlocatedtime'] = fir_t
     col['lastlocatedtime'] = las_t
-    col['interval'] = secs
-
+    #col['interval'] = secs
+from sqlalchemy import create_engine 
+disk_engine = create_engine('sqlite:///new.sqlite')
 conn = sqlite3.connect('new.sqlite')
 #cur = conn.cursor()
 #cur.execute('''DROP TABLE if EXISTS wifi''')
@@ -84,7 +85,7 @@ for f in l:
         bld = df["bldid"].apply(lambda x: x[-7:]).copy()
         df['bldid'] = bld
         # if out then 1
-        print "create Out dim mark"
+        print "create Out dim mark...0 means in-dim"
         st1 = datetime.now()
         out = []
         for i, row in enumerate(df.values):
@@ -102,8 +103,7 @@ for f in l:
         df.drop(['guestid','currenttime'], axis=1, inplace=True)
         print df.head()
         print 'write to db %s' %f
-        df.to_sql(name='wifi',index=False,con=conn,if_exists='append',dtype={"sgtime": "DATETIME", "status":"CHAR(20)", "mac": "CHAR(20)","bldid": "CHAR(20)"," xcor ":"NUMERIC","ycor":" NUMERIC","firstlocatedtime":" DATETIME","lastlocatedtime":"DATETIME","interval": "NUMERIC", "out": "INTEGER"})
+        df.to_sql(name='wifi',index=False,con=conn,if_exists='append',dtype={"sgtime": "DATETIME", "status":"CHAR(20)", "mac": "CHAR(20)","bldid": "CHAR(20)"," xcor ":"NUMERIC","ycor":" NUMERIC","firstlocatedtime":" DATETIME","lastlocatedtime":"DATETIME", "out": "INTEGER"})
 # 2650553 total
-from sqlalchemy import create_engine 
-disk_engine = create_engine('sqlite:///new.sqlite')
+
 
