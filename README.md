@@ -8,16 +8,16 @@
     - find.freq: use fft to find max power of frequency as predictors
     - find.k: find optimal K for fourier combinations
 2. [SDE] contains the [plots] and codes:
-  * __test1.json__: raw data entries in JSON format
+  * __test1.json__: raw data entries in JSON format, with all the possible fields and 2 entries, other data is in reading week(Apr 16 00:00 - Apr 22 23:59) 
   * __jsontest.ipynb__: data exploring, basic infos related to each fields;
-  * __features.ipynb__: feature exploring: distribution of "stationary" "out boundary" devices, mean shift for clustering in 30 mins, snap shot plots
+  * __features.ipynb__: feature exploring, distribution of "stationary" "out boundary" devices, mean shift for clustering in 30 mins, snap shot plots
   * __db write.py__: to write each floor into .sqlite database(need to modify with directory and table names) plus simple preprocessing(adding "interval", "out", parsing time)
   * __identify.py__: filtering out the unusual records' mac address and store them(first records 20mins before the first located time)
   * __treat train.py__: produce train data for prediction in crowd level with predictors like "PROBING" "ASSOCIATED" "Interval" ect.. 
       
      > in "interval" use the median excluding the "lost" ones identified before
   * __visplotly.ipynb__: interactive plots for device numbers and devices movements in specific time
-  * __plotting.r__: generat plots
+  * __plotting.r__: generate plots in R
   
   > other csv files through the process mostly related to aggregation
 
@@ -26,8 +26,8 @@
   2. [ARIMAX]
   3. [Plottings]
 
-> For predicting the SDEs:
-  [Panel data]
+> For SDEs:
+  [Cisco Communities], [Panel data]
 
 
 [Canteen]: https://github.com/Ellen-Co2/ami_sg-work/tree/editing/canteen
@@ -37,3 +37,4 @@
 [ARIMAX]: http://robjhyndman.com/hyndsight/arimax/
 [Plottings]: http://librestats.com/2012/06/11/autoplot-graphical-methods-with-ggplot2/
 [Panel data]: http://www.princeton.edu/~otorres/Panel101R.pdf
+[Cisco Communities]: https://communities.cisco.com/message/226639#226639
