@@ -13,10 +13,12 @@ dat = read.csv("can_even.csv.txt",header = T)
 library("tseries")
 library("forecast")
 library("ggplot2")
+w.width <- 12*24*28 # define the length of train data
+leap <- 12*24 #freq to renew the model 1 day 
 ```
 ### using hour and week as period
 ```{r multi.seasonal, echo=FALSE}
-ms.tr <- msts(dat[,2],c(12,(12*24*7)))
+ms.tr <- msts(dat[c(1:w.width),2],c(12,(12*24*7)))
 plot.ts(x = ms.tr)
 ```
 
@@ -48,8 +50,8 @@ min.f <-aicc.val[which(aicc.val$AICc == min.aicc),]
   else {
   aicc.tmp <- NULL
   aicc.val <- NULL
-for (i in 1:f1.max) {
-  for (j in 1:f2.max) {
+for (i in f1.min:f1.max) {
+  for (j in f2.min:f2.max) {
     for (k in 1:f3.max){
     x.fourier <- fourier(dat.ts,c(i,j,k))
     fitmd <- auto.arima(dat.ts, D = 0, max.P = 0, max.Q = 0, xreg = x.fourier,seasonal=FALSE,max.d=2, ic="aicc", allowdrift=TRUE)
@@ -68,20 +70,27 @@ min.f <-aicc.val[which(aicc.val$bic == min.bic),]
 ```
 ### Test with hour&week cycle
 ```{r hour&week}
-ms.tr <- msts(dat[,2],c(12,(12*24*7)))
-#find.k(ms.tr,6,2)
-# f1 = 6 f2 = 1
+ms.tr <- msts(dat[c(1:w.width),2],c(12,(12*24*7)))
+
+#find.k(ms.tr,4,6,1,2)
+#F1_terms F2_terms     AICc p d q
+#       5        2 55222.88 3 0 4
 ```
 ### Test with day&week cycle
 ```{r day&week}
-ms.dw <- msts(dat[,2],c((12*24),(12*24*7)))
-#find.k(ms.dw,15,2)
+ms.dw <- msts(dat[c(1:w.width),2],c((12*24),(12*24*7)))
+#pt<-proc.time()
+#find.k(ms.dw,f1.min = 6,f1.max =10,f2.min = 1,f2.max = 2)
+#proc.time() - pt
+# time used
+#   user  system elapsed 
+# 589.86    0.19  591.26
 #F1_terms F2_terms     AICc p d q
-#      10        1 62039.28 5 1 2
+#      10        2 54646.41 5 1 3
 #F1_terms F2_terms     AICc p d q
-#       7        1 62300.93 3 1 4
+#      15        1 54579.08 2 1 4
 #F1_terms F2_terms     AICc p d q
-#      13        1 61946.02 5 1 2
+#      25        1 54523.88 3 1 4
 ```
 ### using fft to find optimal freq
 ```{r fft, echo= F}
@@ -95,23 +104,72 @@ colnames(T1)<- c("Power","Frequency")
 
 return (T1)
 }
-t1<-find.freq(dat[,2]) 
-## power 2nd has T=144/72
-t2<- find.freq(diff(dat[,2]))
+t1<-find.freq(dat[c(1:w.width),2]) 
+pow <- order(t1$Power,decreasing = T) 
+# power highest  T=Inf/144/1008
+ff1 <- 1/t1$Frequency[pow[2]]
+ff1
+## power has T=24/28
+t2<- find.freq(diff(dat[c(1:w.width),2]))
 pow <- order(t2$Power,decreasing = T) 
 # power highest T=28.79/24
 ff1 <- 1/t2$Frequency[pow[1]]
+ff1
 ```
 
-### Produce forecasting use the Optimal K
+### Produce forecasting and model check use the Optimal K
 ```{r forecasting,echo=F}
-x.fd = fourier(ms.dw,c(13,1))
-x.fdh = fourier(ms.dw,c(13,1), h = 12*24) #forecasting 24 hrs
+pt <- proc.time()
+x.fd = fourier(ms.dw,c(15,1))
+#forecasting following time
+x.fdh = fourier(ms.dw,c(15,1), h = leap) 
 best_md.day = auto.arima(ms.dw, D = 0, xreg = x.fd, max.d=3, ic="bic",seasonal = F, allowdrift=TRUE)
-b_dfcast = forecast(best_md.day, xreg = x.fdh, h = 12*24)
-autoplot(b_dfcast)
-Acf(best_md.day$residuals)
-#view the residuals as white noise
+b_dfcast = forecast(best_md.day, xreg = x.fdh, h = leap)
+proc.time()-pt
+
+```
+
+### display results of forecast with best model
+```{r display forecast}
+
+fcast.ori <- function(forecast, ori,...){
+  # data wrangling
+  time <- attr(forecast$x, "tsp")
+  time <- seq(time[1], attr(forecast$mean, "tsp")[2], by=1/time[3])
+  lenx <- length(forecast$x)
+  lenmn <- length(forecast$mean)
+ 
+  df <- data.frame(time=time,
+    x=c(forecast$x, forecast$mean),
+    forecast=c(rep(NA, lenx), forecast$mean),
+    orival = c(rep(NA, lenx), ori),
+    low1=c(rep(NA, lenx), forecast$lower[, 1]),
+    upp1=c(rep(NA, lenx), forecast$upper[, 1]),
+    low2=c(rep(NA, lenx), forecast$lower[, 2]),
+    upp2=c(rep(NA, lenx), forecast$upper[, 2])
+  )
+ 
+p<-  ggplot(df, aes(time, x)) +
+    geom_linerange(aes(ymin=low2, ymax=upp2), color="grey", na.rm=TRUE) +
+    geom_linerange(aes(ymin=low1, ymax=upp1), color="lightgrey", na.rm=TRUE) +
+    geom_line() +
+    geom_line(data=df[!is.na(df$forecast), ], aes(time, forecast), color="blue", na.rm=TRUE) +geom_line(data=df[!is.na(df$orival), ], aes(time, orival), color="orange",linetype =2, na.rm=TRUE) 
+p+ggtitle(paste("Forecasts from ", forecast$method))
+}
+tst <-dat[c((w.width+1):(w.width+leap)),2]
+fcast.ori(b_dfcast,ori = tst)
+#tsdisplay(best_md.day$residuals)
+```
+
+### dynamic linear models with DLM
+```{r Dlm}
+### DLM mod test 
+library(dlm)
+#build.SDE<- function(x) {dlmModSeas(12*24*7, dV = x[1], dW = x[2:(12*24*7)])}
+#+dlmModPoly(1, dV = x[1], dW = x[2]) }
+
+#fit.SDE <- dlmMLE(ms.dw, parm = rep(100, 2), build = build.SDE,lower = rep(1e-8, 2), hessian = TRUE)
+#unlist(fit.SDE$par)
 
 ```
 
