@@ -1,0 +1,206 @@
+---
+title: "canteen time series"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### read in data
+```{r, echo=FALSE}
+dat = read.csv("can_even.csv.txt",header = T)
+library("tseries")
+library("forecast")
+library("ggplot2")
+w.width <- 12*24*28 # define the length of train data
+leap <- 12*24 #freq to renew the model 1 day 
+```
+### using hour and week as period
+```{r multi.seasonal, echo=FALSE}
+ms.tr <- msts(dat[c(1:w.width),2],c(12,(12*24*7)))
+plot.ts(x = ms.tr)
+```
+
+### function 
+
+* use fourier and AICc to find optimal K combinations for different frequencies, maximum of freq not exceeding T/2  
+
+* eg: total 4 weeks, the maximum would no larger than 2
+
+```{r fourier K}
+find.k <- function(dat.ts,f1.min=1,f1.max,f2.min=1,f2.max,f3.max=NULL)
+  {
+  if (length(f3.max) < 1) {
+aicc.tmp <- NULL
+aicc.val <- NULL
+for (i in f1.min:f1.max) {
+  for (j in f2.min:f2.max) {
+    x.fourier <- fourier(dat.ts,c(i,j))
+    fitmd <- auto.arima(dat.ts, D = 0, max.P = 0, max.Q = 0, xreg = x.fourier,seasonal=FALSE,max.d=2, ic="aicc", allowdrift=TRUE)
+    aicc.tmp <- cbind(i, j , fitmd$aicc ,arimaorder(fitmd)[1],arimaorder(fitmd)[2],arimaorder(fitmd)[3])
+    aicc.val <- rbind(aicc.val,aicc.tmp)
+  }
+}
+colnames(aicc.val) <- c("F1_terms","F2_terms","AICc","p","d","q")
+aicc.val <- data.frame(aicc.val)
+min.aicc <- min(aicc.val$AICc)
+min.f <-aicc.val[which(aicc.val$AICc == min.aicc),]
+}
+  else {
+  aicc.tmp <- NULL
+  aicc.val <- NULL
+for (i in f1.min:f1.max) {
+  for (j in f2.min:f2.max) {
+    for (k in 1:f3.max){
+    x.fourier <- fourier(dat.ts,c(i,j,k))
+    fitmd <- auto.arima(dat.ts, D = 0, max.P = 0, max.Q = 0, xreg = x.fourier,seasonal=FALSE,max.d=2, ic="aicc", allowdrift=TRUE)
+    aicc.tmp <- cbind(i, j , k , fitmd$aicc)
+    aicc.val <- rbind(aicc.val,aicc.tmp)
+    }
+  }
+}
+colnames(aicc.val) <- c("F1_terms","F2_terms","F3_terms","AICc")
+aicc.val <- data.frame(aicc.val)
+min.bic <- min(aicc.val$bic)
+min.f <-aicc.val[which(aicc.val$bic == min.bic),]
+  }
+  return(min.f)
+}
+```
+### Test with hour&week cycle
+```{r hour&week}
+ms.tr <- msts(dat[c(1:w.width),2],c(12,(12*24*7)))
+
+#find.k(ms.tr,4,6,1,2)
+#F1_terms F2_terms     AICc p d q
+#       5        2 55222.88 3 0 4
+```
+### Test with day&week cycle
+```{r day&week}
+ms.dw <- msts(dat[c(1:w.width),2],c((12*24),(12*24*7)))
+#pt<-proc.time()
+#find.k(ms.dw,f1.min = 6,f1.max =10,f2.min = 1,f2.max = 2)
+#proc.time() - pt
+# time used
+#   user  system elapsed 
+# 589.86    0.19  591.26
+#F1_terms F2_terms     AICc p d q
+#      10        2 54646.41 5 1 3
+#F1_terms F2_terms     AICc p d q
+#      15        1 54579.08 2 1 4
+#F1_terms F2_terms     AICc p d q
+#      25        1 54523.88 3 1 4
+```
+### using fft to find optimal freq
+```{r fft, echo= F}
+find.freq <- function(f.ts){
+abs(fft(f.ts)/sqrt(length(f.ts)))^2-> I
+Pow = I[1:as.integer(length(f.ts)/2)]
+FREQ =(0:as.integer((length(Pow)-1)))/length(Pow)
+plot(FREQ,Pow,type="l")
+T1 <- data.frame(array(c(Pow,FREQ),dim=c(length(Pow),2)))
+colnames(T1)<- c("Power","Frequency")
+
+return (T1)
+}
+t1<-find.freq(dat[c(1:w.width),2]) 
+pow <- order(t1$Power,decreasing = T) 
+# power highest  T=Inf/144/1008
+ff1 <- 1/t1$Frequency[pow[2]]
+ff1
+## power has T=24/28
+t2<- find.freq(diff(dat[c(1:w.width),2]))
+pow <- order(t2$Power,decreasing = T) 
+# power highest T=28.79/24
+ff1 <- 1/t2$Frequency[pow[1]]
+ff1
+```
+
+### Produce forecasting and model check use the Optimal K
+```{r forecasting,echo=F}
+pt <- proc.time()
+build.fmd <- function(dat.ts,f1.k,f2.k=1,len.fcast = leap){
+x.fd = fourier(dat.ts,c(f1.k,f2.k))
+#forecasting following time
+x.fdh = fourier(dat.ts,c(f1.k,f2.k), h = len.fcast) 
+best_md.day = auto.arima(dat.ts, D = 0, xreg = x.fd, max.d=3, ic="bic",seasonal = F, allowdrift=TRUE)
+b_dfcast = forecast(best_md.day, xreg = x.fdh, h = leap)
+full <- list("bst_fcast" =b_dfcast,"fittedmd" = best_md.day)
+return(full)}
+
+dw.md <- build.fmd(ms.dw,15,6)
+proc.time()-pt
+```
+
+### display results of forecast with best model
+```{r display forecast}
+
+fcast.ori.display <- function(forecast, ori,...){
+  # data wrangling
+  time <- attr(forecast$x, "tsp")
+  time <- seq(time[1], attr(forecast$mean, "tsp")[2], by=1/time[3])
+  lenx <- length(forecast$x)
+  lenmn <- length(forecast$mean)
+ 
+  df <- data.frame(time=time,
+    x=c(forecast$x, forecast$mean),
+    forecast=c(rep(NA, lenx), forecast$mean),
+    orival = c(rep(NA, lenx), ori),
+    low1=c(rep(NA, lenx), forecast$lower[, 1]),
+    upp1=c(rep(NA, lenx), forecast$upper[, 1]),
+    low2=c(rep(NA, lenx), forecast$lower[, 2]),
+    upp2=c(rep(NA, lenx), forecast$upper[, 2])
+  )
+ 
+p<-  ggplot(df, aes(time, x)) +
+    geom_linerange(aes(ymin=low2, ymax=upp2), color="grey", na.rm=TRUE) +
+    geom_linerange(aes(ymin=low1, ymax=upp1), color="lightblue", na.rm=TRUE) +
+    geom_line() +
+    geom_line(data=df[!is.na(df$forecast), ], aes(time, forecast), color="blue", na.rm=TRUE) +geom_line(data=df[!is.na(df$orival), ], aes(time, orival), color="red",linetype = 2, na.rm=TRUE) 
+figf <-p+ggtitle(paste("Forecasts from ", forecast$method))
+return(figf)}
+tst <-dat[c((w.width+1):(w.width+leap)),2]
+fd.fig <- fcast.ori.display(dw.md$bst_fcast,ori = tst)
+fd.fig
+
+```
+#### change the time span and explore
+```{r day&week with new period}
+pt <- proc.time()
+ms.tr <- msts(dat[(c(1:w.width)+leap),2],c(12*24,(12*24*7)))
+tsdisplay(x = ms.tr)
+tst.tr <- dat[c((w.width+1+leap):(w.width+leap+leap)),2]
+#kmin<-find.k(ms.tr,f1.min = 10,f1.max = 15,f2.min = 1,f2.max = 2)
+#print(kmin)
+ff <- build.fmd(ms.tr,15,6)
+p2 <- fcast.ori.display(ff$bst_fcast,tst.tr)
+# 15,6 ME = 12.88
+tb.fd <-tbats(ms.tr)
+tb.ff <-forecast(tb.fd)
+residual <- tb.ff$mean - tst.tr
+plot(residual)
+print (paste("mean error:",sum(abs(c(ff$bst_fcast[["mean"]])-tst.tr))/length(tst.tr)))
+plot((c(ff$bst_fcast[["mean"]])-tst.tr))
+print (paste("mean error rate:" ,sum(abs(b_dfcast$mean-tst.tr)/tst.tr)/length(tst.tr)))
+#tsdisplay(best_md.day$residuals)                   
+print(paste("used time",proc.time()-pt))
+```
+
+
+### dynamic linear models with DLM
+```{r Dlm}
+### DLM mod test 
+library(dlm)
+build.SDE<- function(x) {
+dlmModSeas(12*24*7) +dlmModPoly() ->mod
+  V(mod)<- exp(x[1])
+  diag(W(mod))[1:3]<-exp(x[2:4])
+  return(mod)}
+#+dlmModPoly(1, dV = x[1], dW = x[2]) }
+
+fit.SDE <- dlmMLE(ms.dw, parm = rep(0, 4), build = build.SDE,lower = rep(1e-8, 2), hessian = TRUE)
+unlist(fit.SDE$par)
+
+```
+
