@@ -1,7 +1,7 @@
 dat = read.csv("p_5min.csv",header=TRUE)
 attach(dat)
-strptime(sgtime,format = "%Y-%m-%d %H:%M:%S")->t1
-dat$sgtime<-t1
+strptime(time,format = "%Y-%m-%d %H:%M:%S")->t1
+dat$time<-t1
 str(dat)
 require(ggplot2)
 require(scales)

@@ -13,8 +13,42 @@ dat = read.csv("can_even.csv.txt",header = T)
 library("tseries")
 library("forecast")
 library("ggplot2")
+
 w.width <- 12*24*28 # define the length of train data
-leap <- 12*24 #freq to renew the model 1 day 
+leap <- 12*24 #freq to renew the model 1 day
+long <- msts(dat[,2],c((12*24),(12*24*7)))
+
+mov <- function(ts.full,i,s =1)
+{s.time <- (s+(leap)*i/leap/7)
+e.time <- (s+(w.width-1+leap*i)/leap/7)
+samp <- window(ts.full,start=s.time,end=e.time)
+return(samp)}
+# plot full period JUN 15 00:00-JUL 15 23:55
+attach(dat)
+strptime(time,format = "%Y-%m-%d %H:%M:%S")->t1
+dat$time <- t1
+str(dat)
+```
+
+```{r, plot data fully}
+canfull <-ggplot(data=dat, aes(x=time, y=counts))+geom_line()+scale_x_datetime(name='Period:Jun.15 Wed 00:00 - Jul.15 Fri 23:55',date_labels ="%d-%H",date_breaks="48 hours",limits = c(as.POSIXct(t1[1]),as.POSIXct(t1[length(t1)])))+theme_bw()+ggtitle("Canteen Device Counts");canfull
+jpeg("canteen_full.jpg",width = 1000, height = 500,res = 120)
+print (canfull)
+dev.off()
+detach(dat)
+wed<- dat[1:(12*24+1),]
+str(wed)
+canday <- ggplot(data = wed,aes(x=wed$time, y=wed$counts))+geom_line()+xlab("Jun 15")+ylab("Device Counts")+scale_x_datetime(name='Period:Jun.15 Wed 00:00 - 23:55',labels = date_format("%H",tz="Asia/Kuala_Lumpur"),date_breaks="2 hours")+ggtitle("Canteen Device Counts @ Jun 15")+theme_bw();canday
+jpeg("canteen_wed.jpg",width = 600, height = 500,res = 120)
+print (canday)
+dev.off()
+
+wkend<- dat[(12*24*3+1):(12*24*5+1),]
+str(wkend)
+canwk <- ggplot(data = wkend,aes(x=wkend$time, y=wkend$counts))+geom_line()+xlab("Jun 18")+ylab("Device Counts")+scale_x_datetime(name='Time',labels = date_format("%H",tz="Asia/Kuala_Lumpur"),date_breaks="2 hours")+ggtitle("Canteen Device Counts @ Jun 18-19 Sat- Sun")+theme_bw();canwk
+jpeg("canteen_wkend.jpg",width = 600, height = 500,res = 120)
+print (canwk)
+dev.off()
 ```
 ### using hour and week as period
 ```{r multi.seasonal, echo=FALSE}
@@ -78,7 +112,7 @@ ms.tr <- msts(dat[c(1:w.width),2],c(12,(12*24*7)))
 ```
 ### Test with day&week cycle
 ```{r day&week}
-ms.dw <- msts(dat[c(1:w.width),2],c((12*24),(12*24*7)))
+ms.dw <- msts(dat[c(1:(w.width+1)),2],c((12*24),(12*24*7)))
 #pt<-proc.time()
 #find.k(ms.dw,f1.min = 6,f1.max =10,f2.min = 1,f2.max = 2)
 #proc.time() - pt
@@ -119,7 +153,7 @@ ff1
 
 ### Produce forecasting and model check use the Optimal K
 ```{r forecasting,echo=F}
-pt <- proc.time()
+
 build.fmd <- function(dat.ts,f1.k,f2.k=1,len.fcast = leap){
 x.fd = fourier(dat.ts,c(f1.k,f2.k))
 #forecasting following time
@@ -129,7 +163,7 @@ b_dfcast = forecast(best_md.day, xreg = x.fdh, h = leap)
 full <- list("bst_fcast" =b_dfcast,"fittedmd" = best_md.day)
 return(full)}
 
-dw.md <- build.fmd(ms.dw,15,6)
+
 proc.time()-pt
 ```
 
@@ -160,11 +194,49 @@ p<-  ggplot(df, aes(time, x)) +
     geom_line(data=df[!is.na(df$forecast), ], aes(time, forecast), color="blue", na.rm=TRUE) +geom_line(data=df[!is.na(df$orival), ], aes(time, orival), color="red",linetype = 2, na.rm=TRUE) 
 figf <-p+ggtitle(paste("Forecasts from ", forecast$method))
 return(figf)}
+## only plot the predictions
+fc.ori.con <- function(forecast, ori,...){
+  # data wrangling
+  time <- attr(forecast$mean, "tsp")
+  time <- seq(time[1], attr(forecast$mean, "tsp")[2], by=1/time[3])
+  lenx <- length(forecast$x)
+  lenmn <- length(forecast$mean)
+ 
+  df <- data.frame(time=time,
+    x=c(forecast$mean),
+    forecast=c( forecast$mean),
+    orival = c( ori),
+    low1=c(forecast$lower[, 1]),
+    upp1=c(forecast$upper[, 1]),
+    low2=c(forecast$lower[, 2]),
+    upp2=c( forecast$upper[, 2])
+  )
+ 
+p<-  ggplot(df, aes(time, x)) +
+    geom_linerange(aes(ymin=low2, ymax=upp2), color="grey", na.rm=TRUE) +
+    geom_linerange(aes(ymin=low1, ymax=upp1), color="lightblue", na.rm=TRUE) +
+    geom_line() +
+    geom_line(data=df[!is.na(df$forecast), ], aes(time, forecast), color="blue", na.rm=TRUE) +geom_line(data=df[!is.na(df$orival), ], aes(time, orival), color="red",linetype = 2, na.rm=TRUE) 
+figf <-p+ggtitle(paste("Forecasts", forecast$method))
+return(figf)}
+```
+
+```{r start plotting comparison}
+dw.md <- build.fmd(ms.dw,15,6)
 tst <-dat[c((w.width+1):(w.width+leap)),2]
 fd.fig <- fcast.ori.display(dw.md$bst_fcast,ori = tst)
+f.fig <-fc.ori.con(dw.md$bst_fcast,ori = tst)
 fd.fig
 
+dw3.md <-build.fmd(ms.dw3,15,2)
+#10,2,
+#15,6,MAE17.51
+jpeg("3day15_6.jpg",width = 500,height = 500,bg="transparent",res=120)
+fc.ori.con(dw3.md$bst_fcast,ori = tst3)
+dev.off()
+print (paste("mean error:",sum(abs(c(dw3.md$bst_fcast[["mean"]])-tst3))/length(tst3)))
 ```
+
 #### change the time span and explore
 ```{r day&week with new period}
 pt <- proc.time()
@@ -173,15 +245,44 @@ tsdisplay(x = ms.tr)
 tst.tr <- dat[c((w.width+1+leap):(w.width+leap+leap)),2]
 #kmin<-find.k(ms.tr,f1.min = 10,f1.max = 15,f2.min = 1,f2.max = 2)
 #print(kmin)
-ff <- build.fmd(ms.tr,15,6)
-p2 <- fcast.ori.display(ff$bst_fcast,tst.tr)
-# 15,6 ME = 12.88
-tb.fd <-tbats(ms.tr)
-tb.ff <-forecast(tb.fd)
+ff1 <- build.fmd(ms.dw2,10,2)
+p2 <- fc.ori.con(ff1$bst_fcast,tst.tr)
+# 10,2 2nd MAE 15.82, (4,1,4)
+# 15,6 MAE = 12.88
+
 residual <- tb.ff$mean - tst.tr
-plot(residual)
-print (paste("mean error:",sum(abs(c(ff$bst_fcast[["mean"]])-tst.tr))/length(tst.tr)))
-plot((c(ff$bst_fcast[["mean"]])-tst.tr))
+fd.fig <-fc.ori.con(tb.ff,ori = tst)
+jpeg("1stdayTBATS.jpg",width = 700,height = 500,bg="transparent",res=120)
+fd.fig
+dev.off()
+
+tb.fd2 <-tbats(ms.dw2)
+tb.ff2 <-forecast(tb.fd2,h=12*24)
+tp2<- fc.ori.con(tb.ff2,tst.tr)
+jpeg("2nddayTBATS.jpg",width = 600,height = 500,bg="transparent",res=120)
+tp2
+dev.off()
+
+
+tst3 <- dat[c((w.width+1+leap*2):(w.width+leap*3)),2]
+ms.dw3 <- mov(long,2)
+tb.md3<- tbats(ms.dw3)
+tb.ff3<- forecast(tb.md3,h=leap)
+jpeg("3rddayTBATS.jpg",width = 600,height = 500,bg="transparent",res=120)
+fc.ori.con(tb.ff3,tst3)
+dev.off()
+
+print (paste("mean error:",sum(abs(c(tb.ff3[["mean"]])-tst3))/length(tst3)))
+res3<- tb.ff3$mean-tst3
+res3a<- dw3.md$bst_fcast[["mean"]]-tst3
+plot(res3a,type ="n",main= paste("Residuals "))
+lines(res3a,col="red")
+lines(res3,col="blue")
+abline(h=mean(abs(res3a)),lty=1,col="red")
+abline(h=mean(abs(res3)),lty=1,col="blue")
+#MAE & MAPE
+print (paste("mean error:",sum(abs(c(tb.ff3[["mean"]])-tst3))/length(tst3)))
+plot((c(ff$bst_fcast[["mean"]])-tst3))
 print (paste("mean error rate:" ,sum(abs(b_dfcast$mean-tst.tr)/tst.tr)/length(tst.tr)))
 #tsdisplay(best_md.day$residuals)                   
 print(paste("used time",proc.time()-pt))
