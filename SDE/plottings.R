@@ -1,4 +1,4 @@
-dat = read.csv("p_5min.csv",header=TRUE)
+dat = read.csv("p_30min.csv",header=TRUE)
 attach(dat)
 strptime(time,format = "%Y-%m-%d %H:%M:%S")->t1
 dat$time<-t1
@@ -26,11 +26,11 @@ dev.off()
 require(reshape2)
 plodat = melt(dat[,c(1,2,5,6)],id =c("t_grp","bldid"))
 str(plodat)
-p =ggplot(data=plodat, aes(x=t_grp,y=value,group=variable,colour=factor(variable)))+geom_line(size=0.5)+facet_wrap(~bldid,ncol=3,scales = "free_y")+scale_x_datetime(name='periods from start(Apr.16.Sat)',date_labels ="%a-%H",date_breaks="20 hours")+xlab('periods from start(Apr.16.Sat)')
-b = p+ylab('standard deviations in x/y axis within 5mins')
+p =ggplot(data=plodat, aes(x=t_grp,y=value,group=variable,colour=factor(variable)))+geom_line(size=0.5)+facet_wrap(~bldid,ncol=3,scales = "free_y")+xlab('periods from start(Apr.16.Sat)')#+scale_x_datetime(name='periods from start(Apr.16.Sat)',date_labels ="%a-%H",date_breaks="20 hours")')
+b = p+ylab('standard deviations in x/y axis within 30mins')
 p = b+theme(plot.title = element_text(size = rel(1), colour = "black"),panel.grid=element_line(colour="grey"))+ggtitle("Devices' cordinates sd distribution")
-p
-tiff('cordinates sd 5 min.tiff',width=1800,height = 1600,units = "px",compression = "lzw",res=120)
+
+jpeg('cordinates sd 30 min.jpg',width=1800,height = 1600,units = "px",res=120)
 p
 dev.off()
 ####_______________plot mac count with variations___________####
@@ -48,7 +48,7 @@ p3 <- ggplot(data=macdat[!is.na(macdat$xcor)&(macdat$xcor>0),], aes(x=xcor))+geo
 p3 <- p3+xlab("standard deviation at x direction(above 0 subset of 52%)")
 p4 <- ggplot(data=macdat[!is.na(macdat$ycor)&(macdat$ycor>0),], aes(x=ycor))+geom_histogram(aes(fill = ..count..,y= ..density..),binwidth = 1)+scale_fill_gradient("Count", low = "skyblue", high = "red")+geom_density()
 p4 <- p4+xlab("standard deviation at y direction(above 0 subset of 51.85%)")
-tiff('mac intervals.tiff',width=1800,height = 1000,units = "px",res=120)
+jpeg('mac intervals.tiff',width=1800,height = 1000,units = "px",res=120)
 plot_grid(p1, p2, p3, p4, ncol=2)
 dev.off()
 ####_________places&appear times____________####
