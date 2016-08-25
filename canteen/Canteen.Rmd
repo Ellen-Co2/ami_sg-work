@@ -224,12 +224,13 @@ return(figf)}
 ```{r start plotting comparison}
 dw.md <- build.fmd(ms.dw,15,6)
 tst <-dat[c((w.width+1):(w.width+leap)),2]
+# 15,6 1st MAE 
 fd.fig <- fcast.ori.display(dw.md$bst_fcast,ori = tst)
 f.fig <-fc.ori.con(dw.md$bst_fcast,ori = tst)
 fd.fig
 
-dw3.md <-build.fmd(ms.dw3,15,2)
-#10,2,
+dw3.md <-build.fmd(ms.dw3,10,2)
+#10,2,MAE17.92
 #15,6,MAE17.51
 jpeg("3day15_6.jpg",width = 500,height = 500,bg="transparent",res=120)
 fc.ori.con(dw3.md$bst_fcast,ori = tst3)
@@ -245,11 +246,12 @@ tsdisplay(x = ms.tr)
 tst.tr <- dat[c((w.width+1+leap):(w.width+leap+leap)),2]
 #kmin<-find.k(ms.tr,f1.min = 10,f1.max = 15,f2.min = 1,f2.max = 2)
 #print(kmin)
+
 ff1 <- build.fmd(ms.dw2,10,2)
 p2 <- fc.ori.con(ff1$bst_fcast,tst.tr)
 # 10,2 2nd MAE 15.82, (4,1,4)
 # 15,6 MAE = 12.88
-
+ff3 <-build.fmd(ms.dw3)
 residual <- tb.ff$mean - tst.tr
 fd.fig <-fc.ori.con(tb.ff,ori = tst)
 jpeg("1stdayTBATS.jpg",width = 700,height = 500,bg="transparent",res=120)
@@ -273,17 +275,32 @@ fc.ori.con(tb.ff3,tst3)
 dev.off()
 
 print (paste("mean error:",sum(abs(c(tb.ff3[["mean"]])-tst3))/length(tst3)))
-res3<- tb.ff3$mean-tst3
-res3a<- dw3.md$bst_fcast[["mean"]]-tst3
-plot(res3a,type ="n",main= paste("Residuals "))
+
+res3<- (tb.ff3$mean-tst3)/tst3
+res3a<- (dw3.md$bst_fcast[["mean"]]-tst3)/tst3
+plot(res3a,type ="n",main= paste("Error Rate(R:ARIMA-B:TBATS) "),ylab="")
 lines(res3a,col="red")
 lines(res3,col="blue")
-abline(h=mean(abs(res3a)),lty=1,col="red")
+lines(h=mean(abs(res3a)),lty=1,col="red")
 abline(h=mean(abs(res3)),lty=1,col="blue")
+
+res1<- (tb.ff$mean-tst)/tst
+res1a<- (ff$bst_fcast[["mean"]]-tst)/tst
+plot(res1a,type ="n",main= paste("Error Rate(R:ARIMA-B:TBATS) "),ylab="")
+lines(res1a,col="red")
+lines(res1,col="blue")
+lines(h=mean(abs(res3a)),lty=1,col="red")
+abline(h=mean(abs(res3)),lty=1,col="blue")
+
+
 #MAE & MAPE
-print (paste("mean error:",sum(abs(c(tb.ff3[["mean"]])-tst3))/length(tst3)))
+print (paste("mean error:",sum(abs(c(tb.fc$mean)-tst)/tst)/length(tst)))
 plot((c(ff$bst_fcast[["mean"]])-tst3))
-print (paste("mean error rate:" ,sum(abs(b_dfcast$mean-tst.tr)/tst.tr)/length(tst.tr)))
+
+print (paste("mean error rate:" ,sum(abs(tb.ff3[["mean"]]-tst3)/tst3)/length(tst3)))
+
+#TBATTS: 0.367
+
 #tsdisplay(best_md.day$residuals)                   
 print(paste("used time",proc.time()-pt))
 ```
