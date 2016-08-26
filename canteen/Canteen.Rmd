@@ -224,15 +224,17 @@ return(figf)}
 ```{r start plotting comparison}
 dw.md <- build.fmd(ms.dw,15,6)
 tst <-dat[c((w.width+1):(w.width+leap)),2]
-# 15,6 1st MAE 
-fd.fig <- fcast.ori.display(dw.md$bst_fcast,ori = tst)
+# 15,6 1st MAE 12.99 (3,1,4)
+#fd.fig <- fcast.ori.display(dw.md$bst_fcast,ori = tst)
 f.fig <-fc.ori.con(dw.md$bst_fcast,ori = tst)
-fd.fig
+jpeg("1stday.jpg",width = 600,height = 500,bg="transparent",res=120)
+f.fig
+dev.off()
 
 dw3.md <-build.fmd(ms.dw3,10,2)
 #10,2,MAE17.92
 #15,6,MAE17.51
-jpeg("3day15_6.jpg",width = 500,height = 500,bg="transparent",res=120)
+jpeg("3day15_6.jpg",width = 600,height = 500,bg="transparent",res=120)
 fc.ori.con(dw3.md$bst_fcast,ori = tst3)
 dev.off()
 print (paste("mean error:",sum(abs(c(dw3.md$bst_fcast[["mean"]])-tst3))/length(tst3)))
@@ -254,7 +256,7 @@ p2 <- fc.ori.con(ff1$bst_fcast,tst.tr)
 ff3 <-build.fmd(ms.dw3)
 residual <- tb.ff$mean - tst.tr
 fd.fig <-fc.ori.con(tb.ff,ori = tst)
-jpeg("1stdayTBATS.jpg",width = 700,height = 500,bg="transparent",res=120)
+jpeg("1stdayTBATS.jpg",width = 600,height = 500,bg="transparent",res=120)
 fd.fig
 dev.off()
 
