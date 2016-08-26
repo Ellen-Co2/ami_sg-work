@@ -34,7 +34,7 @@ jpeg('cordinates sd 30 min.jpg',width=1800,height = 1600,units = "px",res=120)
 p
 dev.off()
 ####_______________plot mac count with variations___________####
-macdat = read.csv("mac_count.csv",header=TRUE)
+macdat = read.csv("mov mac.csv",header=TRUE)
 summary(macdat)
 ##________plot for interval ______________####
 plodat<-macdat[!is.na(macdat$xcor)&(macdat$xcor>0)&(macdat$ycor>0)&(0<macdat$interval)&(macdat$interval<180),]
@@ -57,3 +57,5 @@ times <-ggplot(data=macdat[macdat$sgtime<120,], aes(x=sgtime))+geom_histogram(ae
 tiff('mac spotted.tiff',width=1800,height = 500,units = "px",res=120)
 plot_grid(place,times)
 dev.off()
+####_________plot for distance_________####
+ggplot(data = macdat[!(is.na(macdat$distance_mean)&is.na(macdat$distance_median)),],aes(x=distance_mean))+geom_histogram(aes(fill = ..count..),binwidth = max(distance_mean)/100)+scale_fill_gradient("Count", low = "skyblue", high = "red")
